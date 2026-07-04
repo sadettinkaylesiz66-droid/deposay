@@ -2,53 +2,53 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay - Canlı</title>
-    <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
+    <title>DepoSay - AI Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
     <style>
-        body { background: #000; color: #fff; text-align: center; margin: 0; }
-        #canvas { width: 100%; position: absolute; top: 0; left: 0; }
-        #video { display: none; }
+        body { margin: 0; background: #000; overflow: hidden; }
+        video, canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
 <body>
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
 
     <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        async function setupCamera() {
+            const video = document.getElementById('video');
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+            video.srcObject = stream;
+            return new Promise((resolve) => { video.onloadedmetadata = resolve; });
+        }
 
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => { video.srcObject = stream; });
+        async function detect() {
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const model = await cocoSsd.load();
 
-        // Safari'nin donmasını engelleyen "Aralıklı İşleme" sistemi
-        setInterval(() => {
-            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            async function frame() {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                ctx.drawImage(video, 0, 0);
+                const predictions = await model.detect(video);
                 
-                let src = cv.imread(canvas);
-                let gray = new cv.Mat();
-                cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                cv.Canny(gray, gray, 50, 150);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(video, 0, 0);
 
-                let contours = new cv.MatVector();
-                let hierarchy = new cv.Mat();
-                cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
-
-                for (let i = 0; i < contours.size(); ++i) {
-                    let rect = cv.boundingRect(contours.get(i));
-                    if (rect.width > 50 && rect.height > 50) {
-                        ctx.strokeStyle = '#00FF00';
-                        ctx.lineWidth = 5;
-                        ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-                    }
-                }
-                src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
+                predictions.forEach(p => {
+                    ctx.strokeStyle = '#00FF00';
+                    ctx.lineWidth = 4;
+                    ctx.strokeRect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
+                    ctx.fillStyle = '#00FF00';
+                    ctx.fillText(p.class + ' ' + Math.round(p.score * 100) + '%', p.bbox[0], p.bbox[1] > 10 ? p.bbox[1] - 5 : 10);
+                });
+                requestAnimationFrame(frame);
             }
-        }, 300); // Her 300ms'de bir kare işler (Donmayı önler)
+            frame();
+        }
+
+        setupCamera().then(detect);
     </script>
 </body>
 </html>

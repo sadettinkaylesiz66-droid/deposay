@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay AI - Saf JavaScript Kontur Sayıcı</title>
+    <title>DepoSay AI - Genel Endüstriyel Sayıcı</title>
     <style>
         body {
             margin: 0;
@@ -12,7 +12,7 @@
             font-family: Arial, sans-serif;
             text-align: center;
         }
-        h1 { margin-top: 20px; }
+        h1 { margin-top: 20px; font-size: 24px; }
         .preview-box {
             display: flex;
             justify-content: center;
@@ -52,20 +52,40 @@
         #status {
             color: #aaa;
             margin-top: 10px;
+            padding: 0 10px;
         }
         .controls {
             margin-top: 15px;
             background: #222;
-            padding: 10px;
-            display: inline-block;
+            padding: 15px;
+            display: inline-flex;
+            flex-direction: column;
+            gap: 10px;
             border-radius: 10px;
+            text-align: left;
+        }
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+        select {
+            padding: 5px;
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
 
-    <h1>📷 DepoSay AI (Hafif Sayıcı)</h1>
-    <div id="status">Sistem hazır. Civataları düz ve açık renkli bir zemine serip butona basın.</div>
+    <h1>📷 DepoSay AI (Mobil Arka Kamera)</h1>
+    <div id="status">Sistem hazır. Sayılacak malzemeye göre kontrast modunu seçin.</div>
 
     <div class="preview-box">
         <div class="box">
@@ -81,12 +101,25 @@
     <canvas id="canvasInput" style="display:none;"></canvas>
 
     <div class="controls">
-        <label>Hassasiyet (Eşik Değeri): </label>
-        <input type="range" id="thresholdSlider" min="0" max="255" value="100" onchange="countCivata()">
+        <div class="control-row">
+            <label>🎯 Kontrast Tipi: </label>
+            <select id="modeSelect" onchange="countObjects()">
+                <option value="darkOnLight">Zeminden DAHA KOYU Malzemeler (Civata, Para)</option>
+                <option value="lightOnDark">Zeminden DAHA AÇIK Malzemeler (Klemens, Sigorta)</option>
+            </select>
+        </div>
+        <div class="control-row">
+            <label>🎚️ Renk Hassasiyeti (Eşik): </label>
+            <input type="range" id="thresholdSlider" min="0" max="255" value="110" onchange="countObjects()">
+        </div>
+        <div class="control-row">
+            <label>📐 Malzeme Boyutu (Filtre): </label>
+            <input type="range" id="minSizeSlider" min="5" max="600" value="50" onchange="countObjects()">
+        </div>
     </div>
     
     <br>
-    <button id="sayBtn" onclick="countCivata()">CİVATALARI SAY</button>
+    <button id="sayBtn" onclick="countObjects()">MALZEMELERİ SAY</button>
 
     <div id="count">0</div>
 
@@ -96,17 +129,25 @@
         const canvasOutput = document.getElementById("canvasOutput");
         const statusDiv = document.getElementById("status");
 
-        // Kamerayı Başlat
-        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+        // Mobil cihazlarda arka kamerayı (environment) açması için güncellendi
+        const constraints = {
+            video: {
+                facingMode: "environment",
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        };
+
+        navigator.mediaDevices.getUserMedia(constraints)
         .then(stream => { 
             video.srcObject = stream; 
             video.play();
         })
         .catch(err => { 
-            statusDiv.innerHTML = "Kamera açılmadı. Lütfen tarayıcıdan kamera izni verin."; 
+            statusDiv.innerHTML = "Arka kamera açılmadı. Lütfen tarayıcı izinlerini kontrol edin."; 
         });
 
-        function countCivata() {
+        function countObjects() {
             const width = video.videoWidth || 640;
             const height = video.videoHeight || 480;
             
@@ -118,15 +159,16 @@
             const ctxInput = canvasInput.getContext("2d");
             const ctxOutput = canvasOutput.getContext("2d");
             
-            // Kameradan görüntüyü al
             ctxInput.drawImage(video, 0, 0, width, height);
             const imgData = ctxInput.getImageData(0, 0, width, height);
             const data = imgData.data;
             
             const threshVal = parseInt(document.getElementById("thresholdSlider").value);
+            const minSize = parseInt(document.getElementById("minSizeSlider").value);
+            const mode = document.getElementById("modeSelect").value;
+            
             let binaryMatrix = Array(height).fill().map(() => Array(width).fill(0));
             
-            // Görüntüyü işle (Siyah beyaz eşikleme)
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
@@ -135,24 +177,28 @@
                     const b = data[idx + 2];
                     const brightness = (r + g + b) / 3;
                     
-                    // Eğer zemin açık renk, civatalar koyu renk ise
-                    if (brightness < threshVal) {
-                        binaryMatrix[y][x] = 1; // Nesne bulundu
-                        data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Analiz ekranında yeşil göster
+                    let isTarget = false;
+                    if (mode === "darkOnLight") {
+                        if (brightness < threshVal) isTarget = true;
+                    } else {
+                        if (brightness > threshVal) isTarget = true;
+                    }
+                    
+                    if (isTarget) {
+                        binaryMatrix[y][x] = 1;
+                        data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
                     } else {
                         binaryMatrix[y][x] = 0;
                     }
                 }
             }
             
-            // Bağlantılı Bileşen Sayma (Nesne tespiti - Connected Component Labeling)
             let visited = Array(height).fill().map(() => Array(width).fill(false));
             let objectCount = 0;
             
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     if (binaryMatrix[y][x] === 1 && !visited[y][x]) {
-                        // Yeni bir nesne bulduk, alanını hesaplayalım (BFS algoritması)
                         let queue = [[x, y]];
                         visited[y][x] = true;
                         let size = 0;
@@ -161,7 +207,6 @@
                             let [cx, cy] = queue.shift();
                             size++;
                             
-                            // 4'lü komşuluk kontrolü
                             let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
                             for (let [nx, ny] of neighbors) {
                                 if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
@@ -172,15 +217,13 @@
                                 }
                             }
                         }
-                        // Çok küçük pikselleri (gürültüleri) ele, gerçek civataları say
-                        if (size > 50 && size < 10000) {
+                        if (size > minSize && size < 20000) {
                             objectCount++;
                         }
                     }
                 }
             }
             
-            // Sonuçları ekrana bas
             ctxOutput.putImageData(imgData, 0, 0);
             document.getElementById("count").innerHTML = objectCount;
             statusDiv.innerHTML = `Sayım yapıldı: ${objectCount} adet nesne algılandı.`;

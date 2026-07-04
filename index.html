@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DepoSay AI</title>
     <style>
-        /* Tüm ekran taşmalarını engellemek için sıfırlama */
         * {
             box-sizing: border-box;
             margin: 0;
@@ -19,40 +18,61 @@
             text-align: center;
             padding: 10px;
             width: 100%;
-            overflow-x: hidden; /* Sağa sola kaydırmayı tamamen kilitler */
+            height: 100vh;
+            overflow-x: hidden;
         }
         
         h1 { 
-            margin: 10px 0 5px 0; 
-            font-size: 20px; 
+            margin: 5px 0; 
+            font-size: 18px; 
         }
 
         #status { 
             color: #aaa; 
-            font-size: 13px; 
-            margin-bottom: 15px; 
+            font-size: 12px; 
+            margin-bottom: 8px; 
         }
 
-        /* Yan yana durmayı engelleyen, sığmayınca alta atan esnek kutu */
-        .preview-box {
+        /* Sekme Butonları */
+        .tabs {
             display: flex;
-            flex-direction: column; /* Kesin olarak alt alta sırala */
-            gap: 15px;
+            gap: 5px;
+            max-width: 400px;
+            margin: 0 auto 10px auto;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 13px;
+            background: #333;
+            border: none;
+            border-radius: 8px;
+            color: #aaa;
+            cursor: pointer;
+        }
+
+        .tab-btn.active {
+            background: #2979ff;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Ekran Kutuları */
+        .preview-box {
+            position: relative;
             width: 100%;
-            max-width: 400px; /* iPhone genişlik sınırı */
+            max-width: 400px;
             margin: 0 auto;
         }
 
         .box {
             width: 100%;
-            padding: 0 5px;
+            display: none; /* Varsayılan olarak gizli */
         }
 
-        .box h3 {
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: #ccc;
-            text-align: left;
+        .box.active {
+            display: block; /* Sadece aktif olan sekme görünür */
         }
 
         video, canvas {
@@ -63,10 +83,10 @@
             background: #222;
         }
 
-        /* Mobil Uyumlu Butonlar */
-        button {
-            padding: 14px;
-            font-size: 16px;
+        /* İşlevsel Butonlar */
+        button.action-btn {
+            padding: 12px;
+            font-size: 15px;
             border: none;
             border-radius: 12px;
             color: white;
@@ -78,25 +98,24 @@
             display: block;
         }
         
-         Tarayıcının genişliğini aşmasın diye sınırlandırdık */
-        #switchBtn { background: #2979ff; }
-        #sayBtn { background: #00c853; font-size: 20px; margin-top: 15px; }
+        #switchBtn { background: #555; font-size: 13px; padding: 8px; }
+        #sayBtn { background: #00c853; font-size: 18px; margin-top: 10px; }
 
         #count {
-            font-size: 65px;
-            margin: 10px 0;
+            font-size: 50px;
+            margin: 5px 0;
             font-weight: bold;
             color: #00c853;
         }
 
         /* Kontrol Elemanları */
         .controls {
-            margin: 15px auto;
+            margin: 10px auto;
             background: #222;
-            padding: 15px;
+            padding: 10px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 8px;
             border-radius: 12px;
             text-align: left;
             width: 100%;
@@ -107,7 +126,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         input[type="range"] { 
@@ -115,13 +134,13 @@
         }
 
         select { 
-            padding: 6px; 
+            padding: 5px; 
             background: #333; 
             color: white; 
             border: 1px solid #555; 
-            border-radius: 8px;
-            width: 60%;
-            font-size: 13px;
+            border-radius: 6px;
+            width: 55%;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -130,15 +149,18 @@
     <h1>📷 DepoSay AI</h1>
     <div id="status">Kamera başlatılıyor...</div>
     
-    <button id="switchBtn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
+    <button id="switchBtn" class="action-btn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
+
+    <div class="tabs">
+        <button id="tabCam" class="tab-btn active" onclick="switchTab('cam')">📹 Canlı Kamera</button>
+        <button id="tabAi" class="tab-btn" onclick="switchTab('ai')">🤖 Analiz Görünümü</button>
+    </div>
 
     <div class="preview-box">
-        <div class="box">
-            <h3>Canlı Kamera</h3>
+        <div id="boxCam" class="box active">
             <video id="camera" autoplay playsinline muted></video>
         </div>
-        <div class="box">
-            <h3>Yapay Zeka Görünümü</h3>
+        <div id="boxAi" class="box">
             <canvas id="canvasOutput"></canvas>
         </div>
     </div>
@@ -163,7 +185,7 @@
         </div>
     </div>
     
-    <button id="sayBtn" onclick="countObjects()">MALZEMELERİ SAY</button>
+    <button id="sayBtn" class="action-btn" onclick="countObjects()">MALZEMELERİ SAY</button>
 
     <div id="count">0</div>
 
@@ -204,6 +226,22 @@
         function switchCamera() {
             useRearCamera = !useRearCamera;
             startCamera();
+        }
+
+        // Sekme Değiştirme Fonksiyonu
+        function switchTab(type) {
+            document.getElementById("tabCam").classList.remove("active");
+            document.getElementById("tabAi").classList.remove("active");
+            document.getElementById("boxCam").classList.remove("active");
+            document.getElementById("boxAi").classList.remove("active");
+
+            if (type === 'cam') {
+                document.getElementById("tabCam").classList.add("active");
+                document.getElementById("boxCam").classList.add("active");
+            } else {
+                document.getElementById("tabAi").classList.add("active");
+                document.getElementById("boxAi").classList.add("active");
+            }
         }
 
         startCamera();
@@ -288,6 +326,9 @@
             ctxOutput.putImageData(imgData, 0, 0);
             document.getElementById("count").innerHTML = objectCount;
             statusDiv.innerHTML = `Sayım: ${objectCount} nesne algılandı.`;
+            
+            // Sayım bitince otomatik olarak Analiz Görünümü sekmesine geç
+            switchTab('ai');
         }
     </script>
 </body>

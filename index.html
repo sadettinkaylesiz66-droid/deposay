@@ -2,17 +2,27 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay - Saf</title>
+    <title>DepoSay - Tek Dokunuş</title>
     <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
-        body { background: #000; color: #fff; text-align: center; font-family: sans-serif; }
-        canvas { width: 90%; margin-top: 20px; border: 2px solid #2979ff; }
-        input { margin: 20px; }
+        body { background: #111; color: #fff; text-align: center; font-family: sans-serif; padding: 20px; }
+        /* Dosya seçimini gizleyip butona giydiriyoruz */
+        #fileInput { display: none; }
+        .custom-btn { 
+            display: inline-block; padding: 25px 50px; background: #00c853; 
+            color: white; font-size: 20px; font-weight: bold; border-radius: 15px;
+            cursor: pointer; box-shadow: 0 4px 15px rgba(0,200,83,0.3);
+        }
+        canvas { width: 100%; margin-top: 20px; border: 3px solid #2979ff; border-radius: 12px; }
     </style>
 </head>
 <body>
-    <h1>DepoSay - Saf Sürüm</h1>
+    <h1>DepoSay AI</h1>
+    <p>Aşağıdaki butona basıp kamera ile çekim yapın:</p>
+    
+    <label for="fileInput" class="custom-btn">📷 FOTOĞRAF ÇEK VE SAY</label>
     <input type="file" id="fileInput" accept="image/*" capture="environment">
+    
     <br>
     <canvas id="canvas"></canvas>
 
@@ -28,26 +38,34 @@
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
 
-                    // OpenCV ile işle
+                    // OpenCV İşlemi
                     let src = cv.imread(canvas);
-                    let dst = new cv.Mat();
                     let gray = new cv.Mat();
                     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-                    cv.Canny(gray, dst, 50, 150);
+                    
+                    // Gürültüyü temizle ve kenarları bul
+                    cv.medianBlur(gray, gray, 7);
+                    cv.Canny(gray, gray, 50, 150);
 
                     let contours = new cv.MatVector();
                     let hierarchy = new cv.Mat();
-                    cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+                    cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+                    // Nesneleri numaralandır
+                    let count = 0;
                     for (let i = 0; i < contours.size(); ++i) {
                         let rect = cv.boundingRect(contours.get(i));
                         if (rect.width > 50 && rect.height > 50) {
+                            count++;
                             cv.rectangle(src, new cv.Point(rect.x, rect.y), 
                                          new cv.Point(rect.x + rect.width, rect.y + rect.height), 
                                          [0, 255, 0, 255], 5);
+                            cv.putText(src, count.toString(), new cv.Point(rect.x, rect.y - 10), 
+                                       cv.FONT_HERSHEY_SIMPLEX, 2, [255, 255, 0, 255], 6);
                         }
                     }
                     cv.imshow('canvas', src);
+                    src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
                 };
                 img.src = event.target.result;
             };

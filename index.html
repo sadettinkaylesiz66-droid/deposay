@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepoSay AI - Saf JavaScript Kontur Sayıcı</title>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        h1 { margin-top: 20px; }
+        .preview-box {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            max-width: 1000px;
+            margin: 20px auto;
+            flex-wrap: wrap;
+        }
+        .box {
+            width: 45%;
+            min-width: 300px;
+        }
+        video, canvas {
+            width: 100%;
+            border-radius: 15px;
+            display: block;
+            background: #222;
+            min-height: 240px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 22px;
+            border: none;
+            border-radius: 15px;
+            background: #00c853;
+            color: white;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #count {
+            font-size: 70px;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #00c853;
+        }
+        #status {
+            color: #aaa;
+            margin-top: 10px;
+        }
+        .controls {
+            margin-top: 15px;
+            background: #222;
+            padding: 10px;
+            display: inline-block;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📷 DepoSay AI (Hafif Sayıcı)</h1>
+    <div id="status">Sistem hazır. Civataları düz ve açık renkli bir zemine serip butona basın.</div>
+
+    <div class="preview-box">
+        <div class="box">
+            <h3>Canlı Kamera</h3>
+            <video id="camera" autoplay playsinline muted></video>
+        </div>
+        <div class="box">
+            <h3>Yapay Zeka / Analiz Görünümü</h3>
+            <canvas id="canvasOutput"></canvas>
+        </div>
+    </div>
+
+    <canvas id="canvasInput" style="display:none;"></canvas>
+
+    <div class="controls">
+        <label>Hassasiyet (Eşik Değeri): </label>
+        <input type="range" id="thresholdSlider" min="0" max="255" value="100" onchange="countCivata()">
+    </div>
+    
+    <br>
+    <button id="sayBtn" onclick="countCivata()">CİVATALARI SAY</button>
+
+    <div id="count">0</div>
+
+    <script>
+        const video = document.getElementById("camera");
+        const canvasInput = document.getElementById("canvasInput");
+        const canvasOutput = document.getElementById("canvasOutput");
+        const statusDiv = document.getElementById("status");
+
+        // Kamerayı Başlat
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
+        .then(stream => { 
+            video.srcObject = stream; 
+            video.play();
+        })
+        .catch(err => { 
+            statusDiv.innerHTML = "Kamera açılmadı. Lütfen tarayıcıdan kamera izni verin."; 
+        });
+
+        function countCivata() {
+            const width = video.videoWidth || 640;
+            const height = video.videoHeight || 480;
+            
+            canvasInput.width = width;
+            canvasInput.height = height;
+            canvasOutput.width = width;
+            canvasOutput.height = height;
+            
+            const ctxInput = canvasInput.getContext("2d");
+            const ctxOutput = canvasOutput.getContext("2d");
+            
+            // Kameradan görüntüyü al
+            ctxInput.drawImage(video, 0, 0, width, height);
+            const imgData = ctxInput.getImageData(0, 0, width, height);
+            const data = imgData.data;
+            
+            const threshVal = parseInt(document.getElementById("thresholdSlider").value);
+            let binaryMatrix = Array(height).fill().map(() => Array(width).fill(0));
+            
+            // Görüntüyü işle (Siyah beyaz eşikleme)
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const idx = (y * width + x) * 4;
+                    const r = data[idx];
+                    const g = data[idx + 1];
+                    const b = data[idx + 2];
+                    const brightness = (r + g + b) / 3;
+                    
+                    // Eğer zemin açık renk, civatalar koyu renk ise
+                    if (brightness < threshVal) {
+                        binaryMatrix[y][x] = 1; // Nesne bulundu
+                        data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0; // Analiz ekranında yeşil göster
+                    } else {
+                        binaryMatrix[y][x] = 0;
+                    }
+                }
+            }
+            
+            // Bağlantılı Bileşen Sayma (Nesne tespiti - Connected Component Labeling)
+            let visited = Array(height).fill().map(() => Array(width).fill(false));
+            let objectCount = 0;
+            
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    if (binaryMatrix[y][x] === 1 && !visited[y][x]) {
+                        // Yeni bir nesne bulduk, alanını hesaplayalım (BFS algoritması)
+                        let queue = [[x, y]];
+                        visited[y][x] = true;
+                        let size = 0;
+                        
+                        while (queue.length > 0) {
+                            let [cx, cy] = queue.shift();
+                            size++;
+                            
+                            // 4'lü komşuluk kontrolü
+                            let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
+                            for (let [nx, ny] of neighbors) {
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    if (binaryMatrix[ny][nx] === 1 && !visited[ny][nx]) {
+                                        visited[ny][nx] = true;
+                                        queue.push([nx, ny]);
+                                    }
+                                }
+                            }
+                        }
+                        // Çok küçük pikselleri (gürültüleri) ele, gerçek civataları say
+                        if (size > 50 && size < 10000) {
+                            objectCount++;
+                        }
+                    }
+                }
+            }
+            
+            // Sonuçları ekrana bas
+            ctxOutput.putImageData(imgData, 0, 0);
+            document.getElementById("count").innerHTML = objectCount;
+            statusDiv.innerHTML = `Sayım yapıldı: ${objectCount} adet nesne algılandı.`;
+        }
+    </script>
+</body>
+</html>

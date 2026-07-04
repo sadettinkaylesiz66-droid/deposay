@@ -2,29 +2,29 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay - Ultra Kararlı</title>
+    <title>DepoSay - Profesyonel Mod</title>
     <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
         body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; }
         #video { display: none; }
-        #canvas { width: 100%; max-width: 500px; border: 3px solid #00c853; }
-        .info { color: #fff; padding: 10px; font-family: sans-serif; }
+        #canvas { width: 100%; max-width: 500px; border: 3px solid #00c853; border-radius: 12px; }
+        .ui { color: #fff; font-family: sans-serif; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
-    <div class="info">Sistem tarıyor... Lütfen bekleyin.</div>
+    <div class="ui" id="countDisplay">Nesneler taranıyor...</div>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+        const countDisplay = document.getElementById('countDisplay');
 
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; });
 
-        // Safari için "kilitlenmeyen" aralıklı işleme
         setInterval(async () => {
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
                 canvas.width = video.videoWidth;
@@ -34,24 +34,42 @@
                 let src = cv.imread(canvas);
                 let gray = new cv.Mat();
                 cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+                
+                // Paraziti temizle
+                cv.medianBlur(gray, gray, 7);
+                // Kenarları yakala
                 cv.Canny(gray, gray, 50, 150);
 
                 let contours = new cv.MatVector();
                 let hierarchy = new cv.Mat();
                 cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-                // Sadece kareleri çiz
+                let count = 0;
                 for (let i = 0; i < contours.size(); ++i) {
-                    let rect = cv.boundingRect(contours.get(i));
-                    if (rect.width > 50 && rect.height > 50) {
+                    let cnt = contours.get(i);
+                    let area = cv.contourArea(cnt);
+                    let perimeter = cv.arcLength(cnt, true);
+                    
+                    // SADECE PARÇALARINI TANIMLAYAN FİLTRE:
+                    // 1. Alan çok küçük değil (gürültü değil)
+                    // 2. Yuvarlaklık (circularity) oranı yüksek
+                    let circularity = (4 * Math.PI * area) / (perimeter * perimeter);
+                    
+                    if (area > 800 && circularity > 0.6) {
+                        count++;
+                        let rect = cv.boundingRect(cnt);
                         ctx.strokeStyle = '#00FF00';
-                        ctx.lineWidth = 4;
+                        ctx.lineWidth = 5;
                         ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+                        ctx.fillStyle = '#ffeb3b';
+                        ctx.font = "bold 30px Arial";
+                        ctx.fillText(count, rect.x + 10, rect.y + 40);
                     }
                 }
+                countDisplay.innerHTML = "Tespit edilen parça sayısı: " + count;
                 src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
             }
-        }, 500); // Yarım saniyede bir tarar (Asla donmaz)
+        }, 300);
     </script>
 </body>
 </html>

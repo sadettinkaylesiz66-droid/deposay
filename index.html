@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DepoSay AI</title>
+    <title>DepoSay AI - Akıllı Filtre</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -41,7 +41,7 @@
 </head>
 <body>
 
-    <h1>📷 DepoSay AI</h1>
+    <h1>📷 DepoSay AI (Akıllı Filtreli)</h1>
     <div id="status">Kamera başlatılıyor...</div>
     
     <button id="switchBtn" class="action-btn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
@@ -66,17 +66,17 @@
         <div class="control-row">
             <label>🎯 Kontrast: </label>
             <select id="modeSelect" onchange="countObjects()">
-                <option value="darkOnLight">Zeminden DAHA KOYU</option>
-                <option value="lightOnDark">Zeminden DAHA AÇIK</option>
+                <option value="darkOnLight">Zeminden DAHA KOYU (Para, Civata)</option>
+                <option value="lightOnDark">Zeminden DAHA AÇIK (Klemens)</option>
             </select>
         </div>
         <div class="control-row">
             <label>🎚️ Hassasiyet: </label>
-            <input type="range" id="thresholdSlider" min="0" max="255" value="115" onchange="countObjects()">
+            <input type="range" id="thresholdSlider" min="0" max="255" value="120" onchange="countObjects()">
         </div>
         <div class="control-row">
-            <label>📐 Min Boyut: </label>
-            <input type="range" id="minSizeSlider" min="5" max="500" value="40" onchange="countObjects()">
+            <label>📐 Min Malzeme Boyutu: </label>
+            <input type="range" id="minSizeSlider" min="10" max="600" value="80" onchange="countObjects()">
         </div>
     </div>
     
@@ -125,7 +125,6 @@
         startCamera();
 
         function countObjects() {
-            // Çözünürlüğü sabitleyip telefon esnemelerini sıfırlıyoruz
             const width = 400;
             const height = 300;
             
@@ -145,15 +144,36 @@
             
             let binaryMatrix = Array(height).fill().map(() => Array(width).fill(0));
             
+            // 1. ADIM: İnce çizgileri yok etmek için hafif yumuşatma (Yapay Filtre)
+            ctxInput.filter = 'blur(2px)';
+            ctxInput.drawImage(video, 0, 0, width, height);
+            const blurredImgData = ctxInput.getImageData(0, 0, width, height);
+            const blurredData = blurredImgData.data;
+            ctxInput.filter = 'none'; // Filtreyi sıfırla
+            
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
-                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     
-                    let isTarget = mode === "darkOnLight" ? (brightness < threshVal) : (brightness > threshVal);
+                    const r = blurredData[idx];
+                    const g = blurredData[idx + 1];
+                    const b = blurredData[idx + 2];
+                    
+                    // Defter çizgilerinin mavi/yeşil baskınlığını kırmak için akıllı ağırlıklandırma
+                    const brightness = (r * 0.34 + g * 0.5 + b * 0.16);
+                    
+                    let isTarget = false;
+                    if (mode === "darkOnLight") {
+                        // Çizgiler mavi tonlu olduğu için kırmızı kanalından (R) kaçamazlar.
+                        // Hem parlaklık eşikten küçük olacak, hem de aşırı mavi gürültü olmayacak
+                        if (brightness < threshVal && (r < 200)) isTarget = true;
+                    } else {
+                        if (brightness > threshVal) isTarget = true;
+                    }
                     
                     if (isTarget) {
                         binaryMatrix[y][x] = 1;
+                        // Orijinal resim üzerinde sadece bulunan yerleri yeşile boya
                         data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
                     }
                 }
@@ -177,7 +197,12 @@
                                 }
                             }
                         }
-                        if (size > minSize && size < 15000) { objectCount++; }
+                        
+                        // 2. ADIM: Boyut Filtresi! Defter karelerinin kalıntıları küçük boyutta kalır.
+                        // Paralar ise ekranda çok daha büyük piksel alanı kaplar.
+                        if (size > minSize && size < 15000) { 
+                            objectCount++; 
+                        }
                     }
                 }
             }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DepoSay AI - Süper Filtre</title>
+    <title>DepoSay AI</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -41,7 +41,7 @@
 </head>
 <body>
 
-    <h1>📷 DepoSay AI (Gelişmiş Sayıcı)</h1>
+    <h1>📷 DepoSay AI</h1>
     <div id="status">Kamera başlatılıyor...</div>
     
     <button id="switchBtn" class="action-btn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
@@ -72,11 +72,11 @@
         </div>
         <div class="control-row">
             <label>🎚️ Hassasiyet: </label>
-            <input type="range" id="thresholdSlider" min="0" max="255" value="105" onchange="countObjects()">
+            <input type="range" id="thresholdSlider" min="0" max="255" value="130" onchange="countObjects()">
         </div>
         <div class="control-row">
             <label>📐 Min Malzeme Boyutu: </label>
-            <input type="range" id="minSizeSlider" min="10" max="600" value="100" onchange="countObjects()">
+            <input type="range" id="minSizeSlider" min="5" max="500" value="30" onchange="countObjects()">
         </div>
     </div>
     
@@ -134,13 +134,12 @@
             const ctxInput = canvasInput.getContext("2d");
             const ctxOutput = canvasOutput.getContext("2d");
             
-            // Çizgileri tamamen eritmek için bulanıklık filtresini 3.5px yaptık
-            ctxInput.filter = 'blur(3.5px)';
+            // Beyaz zeminde paraları ayırmak için hafif ve temiz bir blur
+            ctxInput.filter = 'blur(1px)';
             ctxInput.drawImage(video, 0, 0, width, height);
             const blurredImgData = ctxInput.getImageData(0, 0, width, height);
             const blurredData = blurredImgData.data;
             
-            // Orijinal net görüntüyü çıktı için alıyoruz
             ctxInput.filter = 'none';
             ctxInput.drawImage(video, 0, 0, width, height);
             const imgData = ctxInput.getImageData(0, 0, width, height);
@@ -156,19 +155,10 @@
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
                     
-                    const r = blurredData[idx];
-                    const g = blurredData[idx + 1];
-                    const b = blurredData[idx + 2];
+                    // Standart gri tonlama formülü (Beyaz zeminde en kararlısı)
+                    const brightness = (blurredData[idx] + blurredData[idx + 1] + blurredData[idx + 2]) / 3;
                     
-                    const brightness = (r * 0.3 + g * 0.59 + b * 0.11);
-                    
-                    let isTarget = false;
-                    if (mode === "darkOnLight") {
-                        // Defter çizgilerini tamamen elemeye yönelik sert parlaklık filtresi
-                        if (brightness < threshVal && r < 180) isTarget = true;
-                    } else {
-                        if (brightness > threshVal) isTarget = true;
-                    }
+                    let isTarget = mode === "darkOnLight" ? (brightness < threshVal) : (brightness > threshVal);
                     
                     if (isTarget) {
                         binaryMatrix[y][x] = 1;
@@ -195,10 +185,7 @@
                                 }
                             }
                         }
-                        
-                        // Birbirine çok yakın paralar birleştiyse üst sınırı (25000) genişleterek 
-                        // büyük blokların da elenmesini engelliyoruz.
-                        if (size > minSize && size < 35000) { 
+                        if (size > minSize && size < 20000) { 
                             objectCount++; 
                         }
                     }

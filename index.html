@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay Pro - Kontur Analizli</title>
-    <script async src="https://docs.opencv.org/4.5.0/opencv.js"></script>
+    <title>DepoSay Pro - Hızlı Sayım</title>
+    <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
-        body { background: #000; color: #fff; text-align: center; font-family: sans-serif; }
-        canvas { width: 100%; max-width: 500px; border: 2px solid #2979ff; border-radius: 10px; }
-        button { padding: 15px 30px; background: #00c853; border: none; color: white; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 10px; }
+        body { background: #111; color: #fff; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
+        canvas { width: 100%; max-width: 400px; border-radius: 12px; border: 2px solid #2979ff; }
+        .btn { padding: 20px; background: #00c853; border: none; color: white; font-size: 18px; font-weight: bold; border-radius: 12px; width: 100%; max-width: 400px; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -16,21 +16,29 @@
     <video id="video" style="display:none;" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
     <br>
-    <button onclick="processImage()">KARE İÇİNE AL VE SAY</button>
+    <button class="btn" onclick="takePhotoAndCount()">GÖRÜNTÜYÜ İŞLE VE SAY</button>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        
+        const ctx = canvas.getContext('2d');
+
+        // Kamera izni al
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; });
 
-        function processImage() {
+        function takePhotoAndCount() {
+            // Videodan bir kare al
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // OpenCV İşlemi
             let src = cv.imread(canvas);
             let gray = new cv.Mat();
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
             
-            // Kenarları belirginleştir (Blur + Canny)
+            // Kenarları belirginleştir
             cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
             cv.Canny(gray, gray, 50, 150);
 
@@ -40,27 +48,18 @@
 
             for (let i = 0; i < contours.size(); ++i) {
                 let rect = cv.boundingRect(contours.get(i));
-                if (rect.width > 30 && rect.height > 30) { // Gürültüyü ele
+                // Boyut kontrolü (Gürültüyü engellemek için)
+                if (rect.width > 50 && rect.height > 50) {
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), 
                                  new cv.Point(rect.x + rect.width, rect.y + rect.height), 
-                                 [0, 255, 0, 255], 2);
-                    cv.putText(src, (i + 1).toString(), new cv.Point(rect.x, rect.y - 5), 
-                               cv.FONT_HERSHEY_SIMPLEX, 0.6, [255, 255, 0, 255], 2);
+                                 [0, 255, 0, 255], 3);
+                    cv.putText(src, (i + 1).toString(), new cv.Point(rect.x + 5, rect.y + 25), 
+                               cv.FONT_HERSHEY_SIMPLEX, 1, [255, 255, 0, 255], 3);
                 }
             }
             cv.imshow('canvas', src);
             src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
         }
-
-        // Kamera görüntüsünü sürekli canvas'a aktar
-        function drawVideo() {
-            const ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-            requestAnimationFrame(drawVideo);
-        }
-        video.onloadedmetadata = drawVideo;
     </script>
 </body>
 </html>

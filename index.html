@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay Pro - Hızlı Sayım</title>
+    <title>DepoSay Pro - Kararlı</title>
     <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
-        body { background: #111; color: #fff; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
-        canvas { width: 100%; max-width: 400px; border-radius: 12px; border: 2px solid #2979ff; }
+        body { background: #000; color: #fff; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
+        /* Canvas boyutunu ekrana sığdır */
+        #canvas { width: 100%; max-width: 400px; height: auto; border-radius: 12px; border: 2px solid #2979ff; background: #000; }
         .btn { padding: 20px; background: #00c853; border: none; color: white; font-size: 18px; font-weight: bold; border-radius: 12px; width: 100%; max-width: 400px; margin-top: 15px; }
     </style>
 </head>
@@ -16,49 +17,50 @@
     <video id="video" style="display:none;" autoplay playsinline></video>
     <canvas id="canvas"></canvas>
     <br>
-    <button class="btn" onclick="takePhotoAndCount()">GÖRÜNTÜYÜ İŞLE VE SAY</button>
+    <button class="btn" onclick="startProcessing()">ANALİZ ET VE SAY</button>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
 
-        // Kamera izni al
+        // Kamerayı başlat
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
             .then(stream => { video.srcObject = stream; });
 
-        function takePhotoAndCount() {
-            // Videodan bir kare al
+        function startProcessing() {
+            // Canvas boyutunu videonun gerçek boyutuna eşitle
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // OpenCV İşlemi
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0);
+
+            // OpenCV ile işlem yap
             let src = cv.imread(canvas);
+            let dst = new cv.Mat();
             let gray = new cv.Mat();
-            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
             
-            // Kenarları belirginleştir
-            cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
-            cv.Canny(gray, gray, 50, 150);
+            // Gürültüyü azalt (Bu kısım yeşil lekeleri yok eder)
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            cv.medianBlur(gray, gray, 7); 
+            cv.Canny(gray, dst, 50, 100);
 
             let contours = new cv.MatVector();
             let hierarchy = new cv.Mat();
-            cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+            cv.findContours(dst, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
+            // Nesneleri kutula
             for (let i = 0; i < contours.size(); ++i) {
                 let rect = cv.boundingRect(contours.get(i));
-                // Boyut kontrolü (Gürültüyü engellemek için)
-                if (rect.width > 50 && rect.height > 50) {
+                if (rect.width > 40 && rect.height > 40) { // Sadece anlamlı boyuttaki nesneler
                     cv.rectangle(src, new cv.Point(rect.x, rect.y), 
                                  new cv.Point(rect.x + rect.width, rect.y + rect.height), 
-                                 [0, 255, 0, 255], 3);
-                    cv.putText(src, (i + 1).toString(), new cv.Point(rect.x + 5, rect.y + 25), 
-                               cv.FONT_HERSHEY_SIMPLEX, 1, [255, 255, 0, 255], 3);
+                                 [0, 255, 0, 255], 5);
+                    cv.putText(src, (i + 1).toString(), new cv.Point(rect.x, rect.y - 10), 
+                               cv.FONT_HERSHEY_SIMPLEX, 1.5, [255, 255, 0, 255], 4);
                 }
             }
             cv.imshow('canvas', src);
-            src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
+            src.delete(); dst.delete(); gray.delete(); contours.delete(); hierarchy.delete();
         }
     </script>
 </body>

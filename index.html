@@ -2,165 +2,65 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DepoSay AI - Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepoSay Pro - Kontur Analizli</title>
+    <script async src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            background: #111; color: white;
-            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-            text-align: center; padding: 10px; width: 100%; overflow-x: hidden;
-        }
-        h1 { margin: 5px 0; font-size: 18px; }
-        #status { color: #aaa; font-size: 12px; margin-bottom: 8px; }
-        .tabs { display: flex; gap: 5px; max-width: 400px; margin: 0 auto 10px auto; }
-        .tab-btn {
-            flex: 1; padding: 10px; font-size: 13px;
-            background: #333; border: none; border-radius: 8px; color: #aaa; cursor: pointer;
-        }
-        .tab-btn.active { background: #2979ff; color: white; font-weight: bold; }
-        
-        .preview-box { position: relative; width: 100%; max-width: 400px; margin: 0 auto; }
-        .box { width: 100%; display: none; position: relative; }
-        .box.active { display: block; }
-        
-        video { display: none; } /* Videoyu arka planda gizli tutup Canvas'a çizeceğiz */
-        canvas { width: 100% !important; height: auto !important; border-radius: 12px; display: block; background: #222; }
-        
-        button.action-btn {
-            padding: 14px; font-size: 16px; border: none; border-radius: 12px;
-            color: white; cursor: pointer; font-weight: bold; width: 100%; max-width: 400px; margin: 5px auto; display: block;
-        }
-        #switchBtn { background: #555; font-size: 13px; padding: 8px; }
-        #sayBtn { background: #00c853; font-size: 18px; margin-top: 10px; }
-        #count { font-size: 55px; margin: 5px 0; font-weight: bold; color: #00c853; }
-        
-        .controls {
-            margin: 10px auto; background: #222; padding: 12px;
-            display: flex; flex-direction: column; gap: 10px; border-radius: 12px; text-align: left; width: 100%; max-width: 400px;
-        }
-        .control-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-        input[type="range"] { width: 50%; }
-        select { padding: 6px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 55%; font-size: 12px; }
+        body { background: #000; color: #fff; text-align: center; font-family: sans-serif; }
+        canvas { width: 100%; max-width: 500px; border: 2px solid #2979ff; border-radius: 10px; }
+        button { padding: 15px 30px; background: #00c853; border: none; color: white; font-weight: bold; border-radius: 10px; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
-
-    <h1>📷 DepoSay AI - Pro</h1>
-    <div id="status">Kamera başlatılıyor...</div>
-    
-    <button id="switchBtn" class="action-btn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
-
-    <div class="tabs">
-        <button id="tabCam" class="tab-btn active" onclick="switchTab('cam')">📹 Canlı Kamera</button>
-        <button id="tabAi" class="tab-btn" onclick="switchTab('ai')">🤖 Analiz Görünümü</button>
-    </div>
-
-    <div class="preview-box">
-        <video id="camera" autoplay playsinline muted></video>
-        
-        <div id="boxCam" class="box active">
-            <canvas id="canvasLive"></canvas> 
-        </div>
-        <div id="boxAi" class="box">
-            <canvas id="canvasOutput"></canvas>
-        </div>
-    </div>
-
-    <canvas id="canvasInput" style="display:none;"></canvas>
-
-    <div class="controls">
-        <div class="control-row">
-            <label>🎯 Kontrast: </label>
-            <select id="modeSelect">
-                <option value="lightOnDark">Zeminden DAHA AÇIK (Beyaz/Gri Plastik)</option>
-                <option value="darkOnLight">Zeminden DAHA KOYU (Para, Civata)</option>
-            </select>
-        </div>
-        <div class="control-row">
-            <label>🎚️ Hassasiyet: </label>
-            <input type="range" id="thresholdSlider" min="0" max="255" value="120">
-        </div>
-        <div class="control-row">
-            <label>📐 Min Malzeme Boyutu: </label>
-            <input type="range" id="minSizeSlider" min="5" max="500" value="25">
-        </div>
-    </div>
-    
-    <button id="sayBtn" class="action-btn" onclick="countObjects()">MALZEMELERİ SAY</button>
-
-    <div id="count">0</div>
+    <h1>DepoSay Pro</h1>
+    <video id="video" style="display:none;" autoplay playsinline></video>
+    <canvas id="canvas"></canvas>
+    <br>
+    <button onclick="processImage()">KARE İÇİNE AL VE SAY</button>
 
     <script>
-        const video = document.getElementById("camera");
-        const canvasLive = document.getElementById("canvasLive");
-        const canvasInput = document.getElementById("canvasInput");
-        const canvasOutput = document.getElementById("canvasOutput");
-        const statusDiv = document.getElementById("status");
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
         
-        let currentStream = null;
-        let useRearCamera = true;
-        let activeTab = 'cam';
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+            .then(stream => { video.srcObject = stream; });
 
-        const width = 400; const height = 300;
-        canvasLive.width = width; canvasLive.height = height;
+        function processImage() {
+            let src = cv.imread(canvas);
+            let gray = new cv.Mat();
+            cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+            
+            // Kenarları belirginleştir (Blur + Canny)
+            cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0);
+            cv.Canny(gray, gray, 50, 150);
 
-        // Dijital Çerçeve Koordinatları (Varsayılan)
-        let roi = { x: 60, y: 40, w: 280, h: 220 };
-        let isDragging = false, isResizing = false;
-        let touchStart = { x: 0, y: 0 };
+            let contours = new cv.MatVector();
+            let hierarchy = new cv.Mat();
+            cv.findContours(gray, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
 
-        // DOKUNMATİK HAREKET TAKİBİ
-        canvasLive.addEventListener('touchstart', (e) => {
-            const rect = canvasLive.getBoundingClientRect();
-            const touchX = ((e.touches[0].clientX - rect.left) / rect.width) * width;
-            const touchY = ((e.touches[0].clientY - rect.top) / rect.height) * height;
-
-            // Sağ alt köşedeki büyütme tutamacına mı basıldı? (15 piksellik alan)
-            if (Math.abs(touchX - (roi.x + roi.w)) < 25 && Math.abs(touchY - (roi.y + roi.h)) < 25) {
-                isResizing = true;
-            } 
-            // Çerçevenin içine mi basıldı?
-            else if (touchX > roi.x && touchX < roi.x + roi.w && touchY > roi.y && touchY < roi.y + roi.h) {
-                isDragging = true;
+            for (let i = 0; i < contours.size(); ++i) {
+                let rect = cv.boundingRect(contours.get(i));
+                if (rect.width > 30 && rect.height > 30) { // Gürültüyü ele
+                    cv.rectangle(src, new cv.Point(rect.x, rect.y), 
+                                 new cv.Point(rect.x + rect.width, rect.y + rect.height), 
+                                 [0, 255, 0, 255], 2);
+                    cv.putText(src, (i + 1).toString(), new cv.Point(rect.x, rect.y - 5), 
+                               cv.FONT_HERSHEY_SIMPLEX, 0.6, [255, 255, 0, 255], 2);
+                }
             }
-            touchStart.x = touchX; touchStart.y = touchY;
-        });
-
-        canvasLive.addEventListener('touchmove', (e) => {
-            if (!isDragging && !isResizing) return;
-            e.preventDefault(); // Sayfa kaymasını engelle
-
-            const rect = canvasLive.getBoundingClientRect();
-            const touchX = ((e.touches[0].clientX - rect.left) / rect.width) * width;
-            const touchY = ((e.touches[0].clientY - rect.top) / rect.height) * height;
-
-            const dx = touchX - touchStart.x;
-            const dy = touchY - touchStart.y;
-
-            if (isDragging) {
-                roi.x = Math.max(0, Math.min(roi.x + dx, width - roi.w));
-                roi.y = Math.max(0, Math.min(roi.y + dy, height - roi.h));
-            } else if (isResizing) {
-                roi.w = Math.max(60, Math.min(roi.w + dx, width - roi.x));
-                roi.h = Math.max(60, Math.min(roi.h + dy, height - roi.y));
-            }
-
-            touchStart.x = touchX; touchStart.y = touchY;
-        });
-
-        canvasLive.addEventListener('touchend', () => { isDragging = false; isResizing = false; });
-
-        function startCamera() {
-            if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); }
-            const constraints = { video: { facingMode: useRearCamera ? "environment" : "user", width: { ideal: 640 }, height: { ideal: 480 } } };
-            navigator.mediaDevices.getUserMedia(constraints)
-            .then(stream => { 
-                currentStream = stream; video.srcObject = stream; video.play();
-                statusDiv.innerHTML = `Hazır. Çerçeveyi köşesinden tutup büyütebilirsiniz.`;
-                updateLiveView();
-            });
+            cv.imshow('canvas', src);
+            src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
         }
 
-        // CANLI KAMERAYI VE ÇERÇEVEYİ EKRANA ÇİZEN DÖNGÜ
-        function updateLiveView() {
+        // Kamera görüntüsünü sürekli canvas'a aktar
+        function drawVideo() {
+            const ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+            requestAnimationFrame(drawVideo);
+        }
+        video.onloadedmetadata = drawVideo;
+    </script>
+</body>
+</html>

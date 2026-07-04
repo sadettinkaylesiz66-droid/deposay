@@ -5,95 +5,102 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DepoSay AI</title>
     <style>
-        body {
+        /* Tüm ekran taşmalarını engellemek için sıfırlama */
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 10px;
+            padding: 0;
+        }
+        
+        body {
             background: #111;
             color: white;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
             text-align: center;
-            box-sizing: border-box;
+            padding: 10px;
+            width: 100%;
+            overflow-x: hidden; /* Sağa sola kaydırmayı tamamen kilitler */
         }
         
         h1 { 
-            margin: 10px 0; 
+            margin: 10px 0 5px 0; 
             font-size: 20px; 
         }
 
         #status { 
             color: #aaa; 
             font-size: 13px; 
-            margin-bottom: 10px; 
-            padding: 0 5px;
+            margin-bottom: 15px; 
         }
 
-        /* Mobil Uyumlu Kutu Düzeni (Esnek ve Sığan Tasarım) */
+        /* Yan yana durmayı engelleyen, sığmayınca alta atan esnek kutu */
         .preview-box {
             display: flex;
-            flex-direction: column; /* Mobilde alt alta sıralar */
-            gap: 10px;
+            flex-direction: column; /* Kesin olarak alt alta sırala */
+            gap: 15px;
             width: 100%;
-            max-width: 500px;
+            max-width: 400px; /* iPhone genişlik sınırı */
             margin: 0 auto;
         }
 
         .box {
             width: 100%;
-            box-sizing: border-box;
+            padding: 0 5px;
         }
 
         .box h3 {
-            margin: 5px 0;
+            margin-bottom: 5px;
             font-size: 14px;
             color: #ccc;
+            text-align: left;
         }
 
         video, canvas {
-            width: 100%;
-            height: auto; /* Orantılı küçülme sağlar */
+            width: 100% !important;
+            height: auto !important;
             border-radius: 12px;
             display: block;
             background: #222;
         }
 
-        /* Butonlar */
+        /* Mobil Uyumlu Butonlar */
         button {
-            padding: 12px 20px;
+            padding: 14px;
             font-size: 16px;
             border: none;
             border-radius: 12px;
             color: white;
             cursor: pointer;
             font-weight: bold;
-            width: 100%; /* Telefon ekranını tam kaplasın */
-            max-width: 300px;
+            width: 100%;
+            max-width: 400px;
             margin: 5px auto;
-            box-sizing: border-box;
+            display: block;
         }
         
+         Tarayıcının genişliğini aşmasın diye sınırlandırdık */
         #switchBtn { background: #2979ff; }
-        #sayBtn { background: #00c853; font-size: 20px; padding: 15px; margin-top: 10px; }
+        #sayBtn { background: #00c853; font-size: 20px; margin-top: 15px; }
 
         #count {
-            font-size: 60px;
+            font-size: 65px;
             margin: 10px 0;
             font-weight: bold;
             color: #00c853;
         }
 
-        /* Kontrol Paneli Düzenlemesi */
+        /* Kontrol Elemanları */
         .controls {
             margin: 15px auto;
             background: #222;
-            padding: 12px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             gap: 12px;
             border-radius: 12px;
             text-align: left;
             width: 100%;
-            max-width: 450px;
-            box-sizing: border-box;
+            max-width: 400px;
         }
 
         .control-row {
@@ -105,7 +112,6 @@
 
         input[type="range"] { 
             width: 50%; 
-            max-width: 180px;
         }
 
         select { 
@@ -114,9 +120,8 @@
             color: white; 
             border: 1px solid #555; 
             border-radius: 8px;
-            width: 55%;
-            max-width: 220px;
-            font-size: 12px;
+            width: 60%;
+            font-size: 13px;
         }
     </style>
 </head>
@@ -144,8 +149,8 @@
         <div class="control-row">
             <label>🎯 Kontrast: </label>
             <select id="modeSelect" onchange="countObjects()">
-                <option value="darkOnLight">Zeminden DAHA KOYU Nesneler</option>
-                <option value="lightOnDark">Zeminden DAHA AÇIK Nesneler</option>
+                <option value="darkOnLight">Zeminden DAHA KOYU</option>
+                <option value="lightOnDark">Zeminden DAHA AÇIK</option>
             </select>
         </div>
         <div class="control-row">

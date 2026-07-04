@@ -2,11 +2,11 @@
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DepoSay Pro - Tetiklemeli</title>
+    <title>DepoSay - Safir Stabil</title>
     <script src="https://docs.opencv.org/4.5.0/opencv.js"></script>
     <style>
-        body { margin: 0; background: #000; display: flex; flex-direction: column; align-items: center; }
-        #video { width: 100%; max-width: 500px; border: 3px solid #555; }
+        body { background: #000; color: white; text-align: center; margin: 0; }
+        #video { width: 100%; max-width: 500px; display: block; margin: 0 auto; }
         #canvas { display: none; }
         .btn { padding: 25px; width: 90%; background: #00c853; border: none; color: white; font-size: 20px; font-weight: bold; border-radius: 12px; margin-top: 10px; }
     </style>
@@ -14,23 +14,25 @@
 <body>
     <video id="video" autoplay playsinline muted></video>
     <canvas id="canvas"></canvas>
-    <button class="btn" onclick="captureAndProcess()">📸 FOTOĞRAF ÇEK VE SAY</button>
+    <button class="btn" id="snapBtn">FOTOĞRAF ÇEK VE SAY</button>
 
     <script>
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const btn = document.getElementById('snapBtn');
 
+        // Kamera izni iste
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-            .then(stream => { video.srcObject = stream; });
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { alert("Kamera izni gerekli!"); });
 
-        function captureAndProcess() {
-            // Anlık görüntüyü yakala
+        btn.onclick = () => {
+            // Sadece butona basıldığında canvas boyutunu ayarla ve işle
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // OpenCV'ye aktar
+
             let src = cv.imread(canvas);
             let gray = new cv.Mat();
             cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
@@ -44,21 +46,19 @@
             for (let i = 0; i < contours.size(); ++i) {
                 let cnt = contours.get(i);
                 let area = cv.contourArea(cnt);
-                let perimeter = cv.arcLength(cnt, true);
-                let circularity = (4 * Math.PI * area) / (perimeter * perimeter);
-                
-                if (area > 800 && circularity > 0.6) {
+                if (area > 500) { // Sadece anlamlı boyuttaki parçalar
                     let rect = cv.boundingRect(cnt);
                     ctx.strokeStyle = '#00FF00';
-                    ctx.lineWidth = 5;
+                    ctx.lineWidth = 6;
                     ctx.strokeRect(rect.x, rect.y, rect.width, rect.height);
                 }
             }
-            // Görüntüyü videonun yerine canvas'a bas
             video.style.display = 'none';
             canvas.style.display = 'block';
             src.delete(); gray.delete(); contours.delete(); hierarchy.delete();
-        }
+            btn.innerText = "YENİDEN DENE";
+            btn.onclick = () => location.reload();
+        };
     </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>DepoSay AI</title>
+    <title>DepoSay AI - Pro</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -19,10 +19,32 @@
             background: #333; border: none; border-radius: 8px; color: #aaa; cursor: pointer;
         }
         .tab-btn.active { background: #2979ff; color: white; font-weight: bold; }
+        
         .preview-box { position: relative; width: 100%; max-width: 400px; margin: 0 auto; }
-        .box { width: 100%; display: none; }
+        .box { width: 100%; display: none; position: relative; }
         .box.active { display: block; }
         video, canvas { width: 100% !important; height: auto !important; border-radius: 12px; display: block; background: #222; }
+        
+        /* iScanner Tarzı Ayarlanabilir Seçim Çerçevesi */
+        #roiFrame {
+            position: absolute;
+            border: 3px dashed #2979ff;
+            background: rgba(41, 121, 255, 0.1);
+            top: 20%; left: 15%; width: 70%; height: 60%;
+            border-radius: 8px;
+            cursor: move;
+            z-index: 10;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5); /* Çerçevenin dışını karartır */
+        }
+        .roi-handle {
+            position: absolute; width: 20px; height: 20px; background: #2979ff; border-radius: 50%;
+            bottom: -8px; right: -8px; cursor: se-resize;
+        }
+        .roi-text {
+            position: absolute; top: -22px; left: 0; background: #2979ff; color: white;
+            font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold;
+        }
+
         button.action-btn {
             padding: 14px; font-size: 16px; border: none; border-radius: 12px;
             color: white; cursor: pointer; font-weight: bold; width: 100%; max-width: 400px; margin: 5px auto; display: block;
@@ -30,6 +52,7 @@
         #switchBtn { background: #555; font-size: 13px; padding: 8px; }
         #sayBtn { background: #00c853; font-size: 18px; margin-top: 10px; }
         #count { font-size: 55px; margin: 5px 0; font-weight: bold; color: #00c853; }
+        
         .controls {
             margin: 10px auto; background: #222; padding: 12px;
             display: flex; flex-direction: column; gap: 10px; border-radius: 12px; text-align: left; width: 100%; max-width: 400px;
@@ -41,7 +64,7 @@
 </head>
 <body>
 
-    <h1>📷 DepoSay AI</h1>
+    <h1>📷 DepoSay AI - Pro</h1>
     <div id="status">Kamera başlatılıyor...</div>
     
     <button id="switchBtn" class="action-btn" onclick="switchCamera()">🔄 KAMERAYI DEĞİŞTİR</button>
@@ -54,6 +77,10 @@
     <div class="preview-box">
         <div id="boxCam" class="box active">
             <video id="camera" autoplay playsinline muted></video>
+            <div id="roiFrame">
+                <span class="roi-text">SAYIM BÖLGESİ</span>
+                <div class="roi-handle" id="roiResize"></div>
+            </div>
         </div>
         <div id="boxAi" class="box">
             <canvas id="canvasOutput"></canvas>
@@ -66,17 +93,17 @@
         <div class="control-row">
             <label>🎯 Kontrast: </label>
             <select id="modeSelect" onchange="countObjects()">
+                <option value="lightOnDark">Zeminden DAHA AÇIK (Beyaz/Gri Plastik)</option>
                 <option value="darkOnLight">Zeminden DAHA KOYU (Para, Civata)</option>
-                <option value="lightOnDark">Zeminden DAHA AÇIK (Klemens)</option>
             </select>
         </div>
         <div class="control-row">
             <label>🎚️ Hassasiyet: </label>
-            <input type="range" id="thresholdSlider" min="0" max="255" value="130" onchange="countObjects()">
+            <input type="range" id="thresholdSlider" min="0" max="255" value="120" onchange="countObjects()">
         </div>
         <div class="control-row">
             <label>📐 Min Malzeme Boyutu: </label>
-            <input type="range" id="minSizeSlider" min="5" max="500" value="30" onchange="countObjects()">
+            <input type="range" id="minSizeSlider" min="5" max="500" value="25" onchange="countObjects()">
         </div>
     </div>
     
@@ -89,21 +116,58 @@
         const canvasInput = document.getElementById("canvasInput");
         const canvasOutput = document.getElementById("canvasOutput");
         const statusDiv = document.getElementById("status");
+        const roiFrame = document.getElementById("roiFrame");
+        const roiResize = document.getElementById("roiResize");
+        const boxCam = document.getElementById("boxCam");
         
         let currentStream = null;
         let useRearCamera = true;
 
+        // Mobil Dokunmatik Çerçeve Taşıma / Boyutlandırma Mantığı
+        let isDragging = false, isResizing = false;
+        let startX, startY, startLeft, startTop, startWidth, startHeight;
+
+        roiFrame.addEventListener('touchstart', (e) => {
+            if(e.target === roiResize) {
+                isResizing = true;
+            } else {
+                isDragging = true;
+            }
+            startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+            startLeft = roiFrame.offsetLeft; startTop = roiFrame.offsetTop;
+            startWidth = roiFrame.offsetWidth; startHeight = roiFrame.offsetHeight;
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (!isDragging && !isResizing) return;
+            const dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
+            const pWidth = boxCam.offsetWidth;
+            const pHeight = boxCam.offsetHeight;
+
+            if (isDragging) {
+                let newLeft = Math.max(0, Math.min(startLeft + dx, pWidth - roiFrame.offsetWidth));
+                let newTop = Math.max(0, Math.min(startTop + dy, pHeight - roiFrame.offsetHeight));
+                roiFrame.style.left = newLeft + 'px';
+                roiFrame.style.top = newTop + 'px';
+            } else if (isResizing) {
+                let newWidth = Math.max(50, Math.min(startWidth + dx, pWidth - startLeft));
+                let newHeight = Math.max(50, Math.min(startHeight + dy, pHeight - startTop));
+                roiFrame.style.width = newWidth + 'px';
+                roiFrame.style.height = newHeight + 'px';
+            }
+        });
+
+        document.addEventListener('touchend', () => { isDragging = false; isResizing = false; });
+
         function startCamera() {
             if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); }
-            const constraints = {
-                video: { facingMode: useRearCamera ? "environment" : "user", width: { ideal: 640 }, height: { ideal: 480 } }
-            };
+            const constraints = { video: { facingMode: useRearCamera ? "environment" : "user", width: { ideal: 640 }, height: { ideal: 480 } } };
             navigator.mediaDevices.getUserMedia(constraints)
             .then(stream => { 
                 currentStream = stream; video.srcObject = stream; video.play();
-                statusDiv.innerHTML = `Hazır. (${useRearCamera ? 'Arka Kamera' : 'Ön Kamera'})`;
-            })
-            .catch(err => { statusDiv.innerHTML = "Kamera izni gerekiyor."; });
+                statusDiv.innerHTML = `Hazır. Çerçeveyi malzemenize göre ayarlayın.`;
+            });
         }
 
         function switchCamera() { useRearCamera = !useRearCamera; startCamera(); }
@@ -125,22 +189,13 @@
         startCamera();
 
         function countObjects() {
-            const width = 400;
-            const height = 300;
-            
+            const width = 400; const height = 300;
             canvasInput.width = width; canvasInput.height = height;
             canvasOutput.width = width; canvasOutput.height = height;
             
             const ctxInput = canvasInput.getContext("2d");
             const ctxOutput = canvasOutput.getContext("2d");
             
-            // Beyaz zeminde paraları ayırmak için hafif ve temiz bir blur
-            ctxInput.filter = 'blur(1px)';
-            ctxInput.drawImage(video, 0, 0, width, height);
-            const blurredImgData = ctxInput.getImageData(0, 0, width, height);
-            const blurredData = blurredImgData.data;
-            
-            ctxInput.filter = 'none';
             ctxInput.drawImage(video, 0, 0, width, height);
             const imgData = ctxInput.getImageData(0, 0, width, height);
             const data = imgData.data;
@@ -148,6 +203,15 @@
             const threshVal = parseInt(document.getElementById("thresholdSlider").value);
             const minSize = parseInt(document.getElementById("minSizeSlider").value);
             const mode = document.getElementById("modeSelect").value;
+
+            // Çerçevenin ekrandaki oranlarını piksel koordinatlarına çeviriyoruz
+            const pWidth = boxCam.offsetWidth || width;
+            const pHeight = boxCam.offsetHeight || height;
+            
+            const roiX1 = Math.floor((roiFrame.offsetLeft / pWidth) * width);
+            const roiY1 = Math.floor((roiFrame.offsetTop / pHeight) * height);
+            const roiX2 = Math.floor(((roiFrame.offsetLeft + roiFrame.offsetWidth) / pWidth) * width);
+            const roiY2 = Math.floor(((roiFrame.offsetTop + roiFrame.offsetHeight) / pHeight) * height);
             
             let binaryMatrix = Array(height).fill().map(() => Array(width).fill(0));
             
@@ -155,14 +219,14 @@
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
                     
-                    // Standart gri tonlama formülü (Beyaz zeminde en kararlısı)
-                    const brightness = (blurredData[idx] + blurredData[idx + 1] + blurredData[idx + 2]) / 3;
-                    
-                    let isTarget = mode === "darkOnLight" ? (brightness < threshVal) : (brightness > threshVal);
-                    
-                    if (isTarget) {
-                        binaryMatrix[y][x] = 1;
-                        data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
+                    // Sadece çerçeve İÇİNDEKİ pikselleri analiz et, dışını karart
+                    if (x >= roiX1 && x <= roiX2 && y >= roiY1 && y <= roiY2) {
+                        const brightness = (data[idx] + data[idx+1] + data[idx+2]) / 3;
+                        let isTarget = mode === "darkOnLight" ? (brightness < threshVal) : (brightness > threshVal);
+                        if (isTarget) binaryMatrix[y][x] = 1;
+                    } else {
+                        // Çerçevenin dışını siyah/loş yap (iScanner stili fokus)
+                        data[idx] *= 0.3; data[idx+1] *= 0.3; data[idx+2] *= 0.3;
                     }
                 }
             }
@@ -170,31 +234,53 @@
             let visited = Array(height).fill().map(() => Array(width).fill(false));
             let objectCount = 0;
             
-            for (let y = 0; y < height; y++) {
-                for (let x = 0; x < width; x++) {
+            // Çıktı üzerine sayı basmak için hazırlık
+            ctxOutput.putImageData(imgData, 0, 0);
+            ctxOutput.font = "bold 11px Arial";
+            ctxOutput.textAlign = "center";
+            ctxOutput.textBaseline = "middle";
+
+            for (let y = roiY1; y <= roiY2; y++) {
+                for (let x = roiX1; x <= roiX2; x++) {
                     if (binaryMatrix[y][x] === 1 && !visited[y][x]) {
-                        let queue = [[x, y]]; visited[y][x] = true; let size = 0;
+                        let queue = [[x, y]]; visited[y][x] = true; 
+                        let size = 0;
+                        let sumX = 0, sumY = 0; // Merkeze sayı basmak için koordinat toplama
+                        
                         while (queue.length > 0) {
-                            let [cx, cy] = queue.shift(); size++;
+                            let [cx, cy] = queue.shift(); 
+                            size++;
+                            sumX += cx; sumY += cy;
+                            
                             let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
                             for (let [nx, ny] of neighbors) {
-                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                if (nx >= roiX1 && nx <= roiX2 && ny >= roiY1 && ny <= roiY2) {
                                     if (binaryMatrix[ny][nx] === 1 && !visited[ny][nx]) {
                                         visited[ny][nx] = true; queue.push([nx, ny]);
                                     }
                                 }
                             }
                         }
+                        
                         if (size > minSize && size < 20000) { 
                             objectCount++; 
+                            const centerX = sumX / size;
+                            const centerY = sumY / size;
+                            
+                            // iScanner Tarzı Kare ve Numara Çizimi
+                            ctxOutput.strokeStyle = "#00c853";
+                            ctxOutput.lineWidth = 2;
+                            ctxOutput.strokeRect(centerX - 10, centerY - 10, 20, 20);
+                            
+                            ctxOutput.fillStyle = "#ffeb3b";
+                            ctxOutput.fillText(objectCount, centerX, centerY);
                         }
                     }
                 }
             }
             
-            ctxOutput.putImageData(imgData, 0, 0);
             document.getElementById("count").innerHTML = objectCount;
-            statusDiv.innerHTML = `Sayım: ${objectCount} nesne algılandı.`;
+            statusDiv.innerHTML = `Sayım: ${objectCount} nesne çerçevenin içinde algılandı.`;
             switchTab('ai');
         }
     </script>

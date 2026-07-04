@@ -5,143 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>DepoSay AI</title>
     <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
-            background: #111;
-            color: white;
+            background: #111; color: white;
             font-family: -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-            text-align: center;
-            padding: 10px;
-            width: 100%;
-            height: 100vh;
-            overflow-x: hidden;
+            text-align: center; padding: 10px; width: 100%; overflow-x: hidden;
         }
-        
-        h1 { 
-            margin: 5px 0; 
-            font-size: 18px; 
-        }
-
-        #status { 
-            color: #aaa; 
-            font-size: 12px; 
-            margin-bottom: 8px; 
-        }
-
-        /* Sekme Butonları */
-        .tabs {
-            display: flex;
-            gap: 5px;
-            max-width: 400px;
-            margin: 0 auto 10px auto;
-        }
-
+        h1 { margin: 5px 0; font-size: 18px; }
+        #status { color: #aaa; font-size: 12px; margin-bottom: 8px; }
+        .tabs { display: flex; gap: 5px; max-width: 400px; margin: 0 auto 10px auto; }
         .tab-btn {
-            flex: 1;
-            padding: 8px;
-            font-size: 13px;
-            background: #333;
-            border: none;
-            border-radius: 8px;
-            color: #aaa;
-            cursor: pointer;
+            flex: 1; padding: 10px; font-size: 13px;
+            background: #333; border: none; border-radius: 8px; color: #aaa; cursor: pointer;
         }
-
-        .tab-btn.active {
-            background: #2979ff;
-            color: white;
-            font-weight: bold;
-        }
-
-        /* Ekran Kutuları */
-        .preview-box {
-            position: relative;
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-
-        .box {
-            width: 100%;
-            display: none; /* Varsayılan olarak gizli */
-        }
-
-        .box.active {
-            display: block; /* Sadece aktif olan sekme görünür */
-        }
-
-        video, canvas {
-            width: 100% !important;
-            height: auto !important;
-            border-radius: 12px;
-            display: block;
-            background: #222;
-        }
-
-        /* İşlevsel Butonlar */
+        .tab-btn.active { background: #2979ff; color: white; font-weight: bold; }
+        .preview-box { position: relative; width: 100%; max-width: 400px; margin: 0 auto; }
+        .box { width: 100%; display: none; }
+        .box.active { display: block; }
+        video, canvas { width: 100% !important; height: auto !important; border-radius: 12px; display: block; background: #222; }
         button.action-btn {
-            padding: 12px;
-            font-size: 15px;
-            border: none;
-            border-radius: 12px;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            width: 100%;
-            max-width: 400px;
-            margin: 5px auto;
-            display: block;
+            padding: 14px; font-size: 16px; border: none; border-radius: 12px;
+            color: white; cursor: pointer; font-weight: bold; width: 100%; max-width: 400px; margin: 5px auto; display: block;
         }
-        
         #switchBtn { background: #555; font-size: 13px; padding: 8px; }
         #sayBtn { background: #00c853; font-size: 18px; margin-top: 10px; }
-
-        #count {
-            font-size: 50px;
-            margin: 5px 0;
-            font-weight: bold;
-            color: #00c853;
-        }
-
-        /* Kontrol Elemanları */
+        #count { font-size: 55px; margin: 5px 0; font-weight: bold; color: #00c853; }
         .controls {
-            margin: 10px auto;
-            background: #222;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            border-radius: 12px;
-            text-align: left;
-            width: 100%;
-            max-width: 400px;
+            margin: 10px auto; background: #222; padding: 12px;
+            display: flex; flex-direction: column; gap: 10px; border-radius: 12px; text-align: left; width: 100%; max-width: 400px;
         }
-
-        .control-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 13px;
-        }
-
-        input[type="range"] { 
-            width: 50%; 
-        }
-
-        select { 
-            padding: 5px; 
-            background: #333; 
-            color: white; 
-            border: 1px solid #555; 
-            border-radius: 6px;
-            width: 55%;
-            font-size: 12px;
-        }
+        .control-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        input[type="range"] { width: 50%; }
+        select { padding: 6px; background: #333; color: white; border: 1px solid #555; border-radius: 6px; width: 55%; font-size: 12px; }
     </style>
 </head>
 <body>
@@ -177,11 +72,11 @@
         </div>
         <div class="control-row">
             <label>🎚️ Hassasiyet: </label>
-            <input type="range" id="thresholdSlider" min="0" max="255" value="110" onchange="countObjects()">
+            <input type="range" id="thresholdSlider" min="0" max="255" value="115" onchange="countObjects()">
         </div>
         <div class="control-row">
             <label>📐 Min Boyut: </label>
-            <input type="range" id="minSizeSlider" min="5" max="600" value="50" onchange="countObjects()">
+            <input type="range" id="minSizeSlider" min="5" max="500" value="40" onchange="countObjects()">
         </div>
     </div>
     
@@ -199,42 +94,25 @@
         let useRearCamera = true;
 
         function startCamera() {
-            if (currentStream) {
-                currentStream.getTracks().forEach(track => track.stop());
-            }
-
+            if (currentStream) { currentStream.getTracks().forEach(track => track.stop()); }
             const constraints = {
-                video: {
-                    facingMode: useRearCamera ? "environment" : "user",
-                    width: { ideal: 640 },
-                    height: { ideal: 480 }
-                }
+                video: { facingMode: useRearCamera ? "environment" : "user", width: { ideal: 640 }, height: { ideal: 480 } }
             };
-
             navigator.mediaDevices.getUserMedia(constraints)
             .then(stream => { 
-                currentStream = stream;
-                video.srcObject = stream; 
-                video.play();
+                currentStream = stream; video.srcObject = stream; video.play();
                 statusDiv.innerHTML = `Hazır. (${useRearCamera ? 'Arka Kamera' : 'Ön Kamera'})`;
             })
-            .catch(err => { 
-                statusDiv.innerHTML = "Kamera açılmadı. İzinleri kontrol edin."; 
-            });
+            .catch(err => { statusDiv.innerHTML = "Kamera izni gerekiyor."; });
         }
 
-        function switchCamera() {
-            useRearCamera = !useRearCamera;
-            startCamera();
-        }
+        function switchCamera() { useRearCamera = !useRearCamera; startCamera(); }
 
-        // Sekme Değiştirme Fonksiyonu
         function switchTab(type) {
             document.getElementById("tabCam").classList.remove("active");
             document.getElementById("tabAi").classList.remove("active");
             document.getElementById("boxCam").classList.remove("active");
             document.getElementById("boxAi").classList.remove("active");
-
             if (type === 'cam') {
                 document.getElementById("tabCam").classList.add("active");
                 document.getElementById("boxCam").classList.add("active");
@@ -247,13 +125,12 @@
         startCamera();
 
         function countObjects() {
-            const width = video.videoWidth || 640;
-            const height = video.videoHeight || 480;
+            // Çözünürlüğü sabitleyip telefon esnemelerini sıfırlıyoruz
+            const width = 400;
+            const height = 300;
             
-            canvasInput.width = width;
-            canvasInput.height = height;
-            canvasOutput.width = width;
-            canvasOutput.height = height;
+            canvasInput.width = width; canvasInput.height = height;
+            canvasOutput.width = width; canvasOutput.height = height;
             
             const ctxInput = canvasInput.getContext("2d");
             const ctxOutput = canvasOutput.getContext("2d");
@@ -271,23 +148,13 @@
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     const idx = (y * width + x) * 4;
-                    const r = data[idx];
-                    const g = data[idx + 1];
-                    const b = data[idx + 2];
-                    const brightness = (r + g + b) / 3;
+                    const brightness = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
                     
-                    let isTarget = false;
-                    if (mode === "darkOnLight") {
-                        if (brightness < threshVal) isTarget = true;
-                    } else {
-                        if (brightness > threshVal) isTarget = true;
-                    }
+                    let isTarget = mode === "darkOnLight" ? (brightness < threshVal) : (brightness > threshVal);
                     
                     if (isTarget) {
                         binaryMatrix[y][x] = 1;
                         data[idx] = 0; data[idx+1] = 255; data[idx+2] = 0;
-                    } else {
-                        binaryMatrix[y][x] = 0;
                     }
                 }
             }
@@ -298,27 +165,19 @@
             for (let y = 0; y < height; y++) {
                 for (let x = 0; x < width; x++) {
                     if (binaryMatrix[y][x] === 1 && !visited[y][x]) {
-                        let queue = [[x, y]];
-                        visited[y][x] = true;
-                        let size = 0;
-                        
+                        let queue = [[x, y]]; visited[y][x] = true; let size = 0;
                         while (queue.length > 0) {
-                            let [cx, cy] = queue.shift();
-                            size++;
-                            
+                            let [cx, cy] = queue.shift(); size++;
                             let neighbors = [[cx+1, cy], [cx-1, cy], [cx, cy+1], [cx, cy-1]];
                             for (let [nx, ny] of neighbors) {
                                 if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                                     if (binaryMatrix[ny][nx] === 1 && !visited[ny][nx]) {
-                                        visited[ny][nx] = true;
-                                        queue.push([nx, ny]);
+                                        visited[ny][nx] = true; queue.push([nx, ny]);
                                     }
                                 }
                             }
                         }
-                        if (size > minSize && size < 20000) {
-                            objectCount++;
-                        }
+                        if (size > minSize && size < 15000) { objectCount++; }
                     }
                 }
             }
@@ -326,8 +185,6 @@
             ctxOutput.putImageData(imgData, 0, 0);
             document.getElementById("count").innerHTML = objectCount;
             statusDiv.innerHTML = `Sayım: ${objectCount} nesne algılandı.`;
-            
-            // Sayım bitince otomatik olarak Analiz Görünümü sekmesine geç
             switchTab('ai');
         }
     </script>
